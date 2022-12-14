@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 class MediaRecoder {
 public:
     static MediaRecoder* CreateMP4VideoRecoder();
@@ -13,4 +15,7 @@ public:
 struct MP4VideoRecoderStartParam {
     int width;
     int height;
+    int fps;
+
+    std::string filename;
 };
