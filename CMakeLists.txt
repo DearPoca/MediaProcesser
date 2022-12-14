@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.3)
 
-project(media_recoder)
+project(media-recoder)
 set(MP4_VIDEO_RECORDER_LIB_NAME mp4videorecorder)
 
 set(CMAKE_CXX_STANDARD 14)

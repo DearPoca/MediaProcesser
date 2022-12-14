@@ -46,7 +46,7 @@ private:
     void EncodeAndWriteFrame();
 };
 
-const int MP4VideoRecorder::buffer_size_ = 5;
+const int MP4VideoRecorder::buffer_size_ = 10;
 const AVPixelFormat MP4VideoRecorder::output_pix_fmt_ = AV_PIX_FMT_YUV420P;
 const char* const MP4VideoRecorder::format_name_ = "mp4";
 const AVCodecID MP4VideoRecorder::codec_id_ = AV_CODEC_ID_H264;
@@ -252,7 +252,7 @@ void MP4VideoRecorder::EncodeAndWriteFrame() {
 }
 
 bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
-    if (size != width_ * height_ * 4) {
+    if (size != width_ * height_ * 3) {
         log_warn("Video frame data size not match");
     }
 
@@ -262,7 +262,7 @@ bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
         return false;
     }
 
-    libyuv::BGRAToI420((const uint8_t*)data, width_ * 4, frame->data[0], width_, frame->data[1], width_ >> 1,
+    libyuv::RAWToI420((const uint8_t*)data, width_ * 3, frame->data[0], width_, frame->data[1], width_ >> 1,
                        frame->data[2], width_ >> 1, width_, height_);
 
     ring_fifo_av_frame_full_->PutNoWait(frame);
