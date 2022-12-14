@@ -4,7 +4,7 @@
 
 class MediaRecorder {
 public:
-    static MediaRecorder* CreateMP4VideoRecoder();
+    static MediaRecorder* CreateMP4VideoRecorder();
 
     virtual bool Start(void* param) = 0;
     virtual bool SendVideoFrame(void* data, int size) = 0;

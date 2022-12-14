@@ -51,7 +51,7 @@ const AVPixelFormat MP4VideoRecorder::output_pix_fmt_ = AV_PIX_FMT_YUV420P;
 const char* const MP4VideoRecorder::format_name_ = "mp4";
 const AVCodecID MP4VideoRecorder::codec_id_ = AV_CODEC_ID_H264;
 
-MediaRecorder* MediaRecorder::CreateMP4VideoRecoder() { return new MP4VideoRecorder(); }
+MediaRecorder* MediaRecorder::CreateMP4VideoRecorder() { return new MP4VideoRecorder(); }
 
 const char* poca_err2str(int errnum) {
     char tmp[AV_ERROR_MAX_STRING_SIZE] = {0};
@@ -147,6 +147,8 @@ bool MP4VideoRecorder::InitAVContexts() {
     }
 
     log_info("Init av contexts success");
+    log_debug("encoder context time base: {%d / %d}, stream context time base: {%d / %d}", encoder_ctx_->time_base.num,
+              encoder_ctx_->time_base.den, dst_video_stream_->time_base.num, dst_video_stream_->time_base.den);
     return true;
 }
 
@@ -263,7 +265,7 @@ bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
     }
 
     libyuv::RAWToI420((const uint8_t*)data, width_ * 3, frame->data[0], width_, frame->data[1], width_ >> 1,
-                       frame->data[2], width_ >> 1, width_, height_);
+                      frame->data[2], width_ >> 1, width_, height_);
 
     ring_fifo_av_frame_full_->PutNoWait(frame);
 
