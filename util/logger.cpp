@@ -8,6 +8,8 @@
 
 const int log_level = DEBUG;
 
+const char *LogLevel2Str[] = {"DEBUG", "INFO", "WARN", "ERROR"};
+
 void LOG(const char *func, const char *filename, int line, int level, const char *format, ...) {
     if (level < log_level) return;
 

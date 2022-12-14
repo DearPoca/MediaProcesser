@@ -10,8 +10,6 @@ enum LogLevel {
     ERROR,
 };
 
-const char *LogLevel2Str[] = {"DEBUG", "INFO", "WARN", "ERROR"};
-
 #define MAX_LOG_STR_SIZE 1024
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define log_debug(format, ...) LOG(__func__, __FILENAME__, __LINE__, DEBUG, format, ##__VA_ARGS__)
