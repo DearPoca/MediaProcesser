@@ -2,9 +2,9 @@
 
 #include <string>
 
-class MediaRecoder {
+class MediaRecorder {
 public:
-    static MediaRecoder* CreateMP4VideoRecoder();
+    static MediaRecorder* CreateMP4VideoRecoder();
 
     virtual bool Start(void* param) = 0;
     virtual bool SendVideoFrame(void* data, int size) = 0;
@@ -12,7 +12,7 @@ public:
     virtual bool Stop() = 0;
 };
 
-struct MP4VideoRecoderStartParam {
+struct MP4VideoRecorderStartParam {
     int width;
     int height;
     int fps;

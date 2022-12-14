@@ -10,7 +10,7 @@
 ./configure --prefix=/usr/local --enable-gpl --enable-shared --disable-static --enable-libx264
 ```
 
-## libyuv配置
+## libyuv安装
 ```
 cmake ..
 make

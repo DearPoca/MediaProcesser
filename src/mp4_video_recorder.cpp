@@ -4,24 +4,16 @@
 #include <thread>
 
 #include "logger.h"
-#include "media_recoder_interface.h"
+#include "media_recorder_interface.h"
 #include "ring_fifo.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-// #include <libavfilter/buffersink.h>
-// #include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
-// #include <libavutil/avassert.h>
-// #include <libavutil/channel_layout.h>
-// #include <libavutil/imgutils.h>
-// #include <libavutil/mathematics.h>
-// #include <libavutil/opt.h>
-// #include <libavutil/time.h>
 #include <libavutil/timestamp.h>
 }
 
-class MP4VideoRecoder : public MediaRecoder {
+class MP4VideoRecorder : public MediaRecorder {
 public:
     virtual bool Start(void* param) override;
     virtual bool SendVideoFrame(void* data, int size) override;
@@ -54,29 +46,32 @@ private:
     void EncodeAndWriteFrame();
 };
 
-const int MP4VideoRecoder::buffer_size_ = 5;
-const AVPixelFormat MP4VideoRecoder::output_pix_fmt_ = AV_PIX_FMT_YUV420P;
-const char* const MP4VideoRecoder::format_name_ = "mp4";
-const AVCodecID MP4VideoRecoder::codec_id_ = AV_CODEC_ID_H264;
+const int MP4VideoRecorder::buffer_size_ = 5;
+const AVPixelFormat MP4VideoRecorder::output_pix_fmt_ = AV_PIX_FMT_YUV420P;
+const char* const MP4VideoRecorder::format_name_ = "mp4";
+const AVCodecID MP4VideoRecorder::codec_id_ = AV_CODEC_ID_H264;
 
-MediaRecoder* MediaRecoder::CreateMP4VideoRecoder() { return new MP4VideoRecoder(); }
+MediaRecorder* MediaRecorder::CreateMP4VideoRecoder() { return new MP4VideoRecorder(); }
 
-char* poca_err2str(int errnum) {
+const char* poca_err2str(int errnum) {
     char tmp[AV_ERROR_MAX_STRING_SIZE] = {0};
-    return av_make_error_string(tmp, AV_ERROR_MAX_STRING_SIZE, errnum);
+    std::string s = av_make_error_string(tmp, AV_ERROR_MAX_STRING_SIZE, errnum);
+    return s.c_str();
 }
 
-char* poca_ts2timestr(int64_t ts, AVRational* tb) {
+const char* poca_ts2timestr(int64_t ts, AVRational* tb) {
     char tmp[AV_TS_MAX_STRING_SIZE] = {0};
-    return av_ts_make_time_string(tmp, ts, tb);
+    std::string s = av_ts_make_time_string(tmp, ts, tb);
+    return s.c_str();
 }
 
-char* poca_ts2str(int64_t ts) {
+const char* poca_ts2str(int64_t ts) {
     char tmp[AV_TS_MAX_STRING_SIZE] = {0};
-    return av_ts_make_string(tmp, ts);
+    std::string s = av_ts_make_string(tmp, ts);
+    return s.c_str();
 }
 
-bool MP4VideoRecoder::InitAVContexts() {
+bool MP4VideoRecorder::InitAVContexts() {
     int ret;
     AVCodec* encoder;
     AVDictionary* opt;
@@ -94,7 +89,7 @@ bool MP4VideoRecoder::InitAVContexts() {
     }
 
     dst_video_pkt_ = av_packet_alloc();
-    if (dst_video_pkt_) {
+    if (!dst_video_pkt_) {
         log_error("Could not allocate AVPacket");
         return false;
     }
@@ -155,12 +150,12 @@ bool MP4VideoRecoder::InitAVContexts() {
     return true;
 }
 
-bool MP4VideoRecoder::Start(void* param) {
+bool MP4VideoRecorder::Start(void* param) {
     if (param == nullptr) {
         log_error("Start param is nullptr");
         return false;
     }
-    MP4VideoRecoderStartParam* start_param = reinterpret_cast<MP4VideoRecoderStartParam*>(param);
+    MP4VideoRecorderStartParam* start_param = reinterpret_cast<MP4VideoRecorderStartParam*>(param);
     fps_ = start_param->fps;
     width_ = start_param->width;
     height_ = start_param->height;
@@ -174,7 +169,7 @@ bool MP4VideoRecoder::Start(void* param) {
         int ret;
 
         picture = av_frame_alloc();
-        if (!picture) return NULL;
+        if (!picture) return false;
 
         picture->format = output_pix_fmt_;
         picture->width = width_;
@@ -191,12 +186,12 @@ bool MP4VideoRecoder::Start(void* param) {
 
     if (!InitAVContexts()) return false;
 
-    worker_thread_ = std::thread(&MP4VideoRecoder::EncodeAndWriteFrame, this);
+    worker_thread_ = std::thread(&MP4VideoRecorder::EncodeAndWriteFrame, this);
 
     return true;
 }
 
-void MP4VideoRecoder::EncodeAndWriteFrame() {
+void MP4VideoRecorder::EncodeAndWriteFrame() {
     std::function<bool(AVFrame*)> write_frame = [&](AVFrame* frame) -> bool {
         int ret;
         ret = avcodec_send_frame(encoder_ctx_, frame);
@@ -225,11 +220,8 @@ void MP4VideoRecoder::EncodeAndWriteFrame() {
                      poca_ts2str(dst_video_pkt_->duration), poca_ts2timestr(dst_video_pkt_->duration, time_base),
                      dst_video_pkt_->stream_index);
 
-            /* Write the compressed frame to the media file. */
             ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
-            /* pkt is now blank (av_interleaved_write_frame() takes ownership of
-             * its contents and resets pkt), so that no unreferencing is necessary.
-             * This would be different if one used av_write_frame(). */
+
             if (ret < 0) {
                 log_warn("Error while writing output packet: %s", poca_err2str(ret));
                 return false;
@@ -237,7 +229,6 @@ void MP4VideoRecoder::EncodeAndWriteFrame() {
         }
         return true;
     };
-
     int64_t next_pts = 0;
     while (true) {
         AVFrame* frame = ring_fifo_av_frame_full_->Get();
@@ -260,8 +251,8 @@ void MP4VideoRecoder::EncodeAndWriteFrame() {
     av_write_trailer(dst_fmt_ctx_);
 }
 
-bool MP4VideoRecoder::SendVideoFrame(void* data, int size) {
-    if (size != width_ * height_ * 3) {
+bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
+    if (size != width_ * height_ * 4) {
         log_warn("Video frame data size not match");
     }
 
@@ -271,15 +262,17 @@ bool MP4VideoRecoder::SendVideoFrame(void* data, int size) {
         return false;
     }
 
-    libyuv::RGB24ToI420((const uint8_t*)data, width_ * 3, frame->data[0], width_, frame->data[1], width_ >> 1,
-                        frame->data[2], width_ >> 1, width_, height_);
+    libyuv::BGRAToI420((const uint8_t*)data, width_ * 4, frame->data[0], width_, frame->data[1], width_ >> 1,
+                       frame->data[2], width_ >> 1, width_, height_);
+
+    ring_fifo_av_frame_full_->PutNoWait(frame);
 
     return true;
 }
 
-bool MP4VideoRecoder::SendAudioFrame(void* data, int size) { return false; }
+bool MP4VideoRecorder::SendAudioFrame(void* data, int size) { return false; }
 
-bool MP4VideoRecoder::Stop() {
+bool MP4VideoRecorder::Stop() {
     ring_fifo_av_frame_full_->Put(nullptr);
     worker_thread_.join();
 
