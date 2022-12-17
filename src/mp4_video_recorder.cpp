@@ -4,6 +4,7 @@
 #include <thread>
 
 #include "logger.h"
+#include "media_recorder_common.h"
 #include "media_recorder_interface.h"
 #include "ring_fifo.h"
 
@@ -19,6 +20,8 @@ public:
     virtual bool SendVideoFrame(void* data, int size) override;
     virtual bool SendAudioFrame(void* data, int size) override;
     virtual bool Stop() override;
+
+    virtual ~MP4VideoRecorder() override;
 
 private:
     int fps_;
@@ -52,6 +55,8 @@ const char* const MP4VideoRecorder::format_name_ = "mp4";
 const AVCodecID MP4VideoRecorder::codec_id_ = AV_CODEC_ID_H264;
 
 MediaRecorder* MediaRecorder::CreateMP4VideoRecorder() { return new MP4VideoRecorder(); }
+
+MP4VideoRecorder::~MP4VideoRecorder() {}
 
 const char* poca_err2str(int errnum) {
     char tmp[AV_ERROR_MAX_STRING_SIZE] = {0};

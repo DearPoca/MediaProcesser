@@ -3,6 +3,7 @@
 #include <thread>
 
 #include "logger.h"
+#include "media_recorder_common.h"
 #include "media_recorder_interface.h"
 #include "ring_fifo.h"
 
