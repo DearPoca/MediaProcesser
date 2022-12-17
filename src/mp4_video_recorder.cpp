@@ -6,6 +6,7 @@
 #include "logger.h"
 #include "media_recorder_common.h"
 #include "media_recorder_interface.h"
+#include "poca_str.h"
 #include "ring_fifo.h"
 
 extern "C" {
@@ -57,24 +58,6 @@ const AVCodecID MP4VideoRecorder::codec_id_ = AV_CODEC_ID_H264;
 MediaRecorder* MediaRecorder::CreateMP4VideoRecorder() { return new MP4VideoRecorder(); }
 
 MP4VideoRecorder::~MP4VideoRecorder() {}
-
-const char* poca_err2str(int errnum) {
-    char tmp[AV_ERROR_MAX_STRING_SIZE] = {0};
-    std::string s = av_make_error_string(tmp, AV_ERROR_MAX_STRING_SIZE, errnum);
-    return s.c_str();
-}
-
-const char* poca_ts2timestr(int64_t ts, AVRational* tb) {
-    char tmp[AV_TS_MAX_STRING_SIZE] = {0};
-    std::string s = av_ts_make_time_string(tmp, ts, tb);
-    return s.c_str();
-}
-
-const char* poca_ts2str(int64_t ts) {
-    char tmp[AV_TS_MAX_STRING_SIZE] = {0};
-    std::string s = av_ts_make_string(tmp, ts);
-    return s.c_str();
-}
 
 bool MP4VideoRecorder::InitAVContexts() {
     int ret;
@@ -222,10 +205,10 @@ void MP4VideoRecorder::EncodeAndWriteFrame() {
 
             AVRational* time_base = &dst_fmt_ctx_->streams[dst_video_pkt_->stream_index]->time_base;
             log_info("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d",
-                     poca_ts2str(dst_video_pkt_->pts), poca_ts2timestr(dst_video_pkt_->pts, time_base),
-                     poca_ts2str(dst_video_pkt_->dts), poca_ts2timestr(dst_video_pkt_->dts, time_base),
-                     poca_ts2str(dst_video_pkt_->duration), poca_ts2timestr(dst_video_pkt_->duration, time_base),
-                     dst_video_pkt_->stream_index);
+                     poca_ts2str(dst_video_pkt_->pts).c_str(), poca_ts2timestr(dst_video_pkt_->pts, time_base).c_str(),
+                     poca_ts2str(dst_video_pkt_->dts).c_str(), poca_ts2timestr(dst_video_pkt_->dts, time_base).c_str(),
+                     poca_ts2str(dst_video_pkt_->duration).c_str(),
+                     poca_ts2timestr(dst_video_pkt_->duration, time_base).c_str(), dst_video_pkt_->stream_index);
 
             ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
 
