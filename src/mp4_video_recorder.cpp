@@ -48,6 +48,7 @@ private:
 
     bool InitAVContexts();
     void EncodeAndWriteFrame();
+    bool WriteFrame(AVFrame* frame);
 };
 
 const int MP4VideoRecorder::buffer_size_ = 10;
@@ -155,23 +156,23 @@ bool MP4VideoRecorder::Start(void* param) {
     ring_fifo_av_frame_empty_ = new RingFIFO<AVFrame*>(buffer_size_);
 
     for (int i = 0; i < buffer_size_; ++i) {
-        AVFrame* picture;
+        AVFrame* frame;
         int ret;
 
-        picture = av_frame_alloc();
-        if (!picture) return false;
+        frame = av_frame_alloc();
+        if (!frame) return false;
 
-        picture->format = output_pix_fmt_;
-        picture->width = width_;
-        picture->height = height_;
+        frame->format = output_pix_fmt_;
+        frame->width = width_;
+        frame->height = height_;
 
         /* allocate the buffers for the frame data */
-        ret = av_frame_get_buffer(picture, 0);
+        ret = av_frame_get_buffer(frame, 0);
         if (ret < 0) {
             log_error("Could not allocate frame data.");
             return false;
         }
-        ring_fifo_av_frame_empty_->Put(picture);
+        ring_fifo_av_frame_empty_->Put(frame);
     }
 
     if (!InitAVContexts()) return false;
@@ -181,44 +182,44 @@ bool MP4VideoRecorder::Start(void* param) {
     return true;
 }
 
-void MP4VideoRecorder::EncodeAndWriteFrame() {
-    std::function<bool(AVFrame*)> write_frame = [&](AVFrame* frame) -> bool {
-        int ret;
-        ret = avcodec_send_frame(encoder_ctx_, frame);
-        if (ret < 0) {
-            log_error("Error sending a frame to the encoder: %s", poca_err2str(ret));
+bool MP4VideoRecorder::WriteFrame(AVFrame* frame) {
+    int ret;
+    ret = avcodec_send_frame(encoder_ctx_, frame);
+    if (ret < 0) {
+        log_error("Error sending a frame to the encoder: %s", poca_err2str(ret));
+        return false;
+    }
+
+    while (ret >= 0) {
+        ret = avcodec_receive_packet(encoder_ctx_, dst_video_pkt_);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            break;
+        else if (ret < 0) {
+            log_error("Error encoding a frame: %s", poca_err2str(ret));
             return false;
         }
 
-        while (ret >= 0) {
-            ret = avcodec_receive_packet(encoder_ctx_, dst_video_pkt_);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-                break;
-            else if (ret < 0) {
-                log_error("Error encoding a frame: %s", poca_err2str(ret));
-                return false;
-            }
+        /* rescale output packet timestamp values from codec to stream timebase */
+        av_packet_rescale_ts(dst_video_pkt_, encoder_ctx_->time_base, dst_video_stream_->time_base);
+        dst_video_pkt_->stream_index = dst_video_stream_->index;
 
-            /* rescale output packet timestamp values from codec to stream timebase */
-            av_packet_rescale_ts(dst_video_pkt_, encoder_ctx_->time_base, dst_video_stream_->time_base);
-            dst_video_pkt_->stream_index = dst_video_stream_->index;
+        AVRational* time_base = &dst_fmt_ctx_->streams[dst_video_pkt_->stream_index]->time_base;
+        log_debug("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d",
+                  poca_ts2str(dst_video_pkt_->pts).c_str(), poca_ts2timestr(dst_video_pkt_->pts, time_base).c_str(),
+                  poca_ts2str(dst_video_pkt_->dts).c_str(), poca_ts2timestr(dst_video_pkt_->dts, time_base).c_str(),
+                  poca_ts2str(dst_video_pkt_->duration).c_str(),
+                  poca_ts2timestr(dst_video_pkt_->duration, time_base).c_str(), dst_video_pkt_->stream_index);
 
-            AVRational* time_base = &dst_fmt_ctx_->streams[dst_video_pkt_->stream_index]->time_base;
-            log_info("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d",
-                     poca_ts2str(dst_video_pkt_->pts).c_str(), poca_ts2timestr(dst_video_pkt_->pts, time_base).c_str(),
-                     poca_ts2str(dst_video_pkt_->dts).c_str(), poca_ts2timestr(dst_video_pkt_->dts, time_base).c_str(),
-                     poca_ts2str(dst_video_pkt_->duration).c_str(),
-                     poca_ts2timestr(dst_video_pkt_->duration, time_base).c_str(), dst_video_pkt_->stream_index);
-
-            ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
-
-            if (ret < 0) {
-                log_warn("Error while writing output packet: %s", poca_err2str(ret));
-                return false;
-            }
+        ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
+        if (ret < 0) {
+            log_warn("Error while writing output packet: %s", poca_err2str(ret));
+            return false;
         }
-        return true;
-    };
+    }
+    return true;
+}
+
+void MP4VideoRecorder::EncodeAndWriteFrame() {
     int64_t next_pts = 0;
     while (true) {
         AVFrame* frame = ring_fifo_av_frame_full_->Get();
@@ -227,17 +228,16 @@ void MP4VideoRecorder::EncodeAndWriteFrame() {
             break;
         }
         frame->pts = next_pts++;
-        if (!write_frame(frame)) {
+        if (!WriteFrame(frame)) {
             log_error("Something wrong when writing a frame");
             break;
         }
 
         ring_fifo_av_frame_empty_->Put(frame);
     }
-    if (!write_frame(nullptr)) {
+    if (!WriteFrame(nullptr)) {
         log_error("Something wrong when flushing");
     }
-
     av_write_trailer(dst_fmt_ctx_);
 }
 

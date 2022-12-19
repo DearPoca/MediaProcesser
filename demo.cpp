@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
     recorder->Start(&param);
 
     for (int i = 0; i < 5; ++i) {
+        int j = -1;
         std::ifstream ifs;
         ifs.open(argv[1], std::ios::in | std::ios::binary);
         if (!ifs.is_open()) {
@@ -34,6 +35,14 @@ int main(int argc, char** argv) {
         while (ifs.read(src, frame_size).gcount() == frame_size) {
             std::this_thread::sleep_for(std::chrono::milliseconds(15));
             recorder->SendVideoFrame(src, frame_size);
+            j++;
+        }
+        ifs.clear();
+        while (--j > 0) {
+            ifs.seekg(j * frame_size, std::ios::beg);
+            ifs.read(src, frame_size);
+            recorder->SendVideoFrame(src, frame_size);
+            std::this_thread::sleep_for(std::chrono::milliseconds(15));
         }
     }
 
