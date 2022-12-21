@@ -212,7 +212,7 @@ bool MP4VideoRecorder::WriteFrame(AVFrame* frame) {
 
         ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
         if (ret < 0) {
-            log_warn("Error while writing output packet: %s", poca_err2str(ret));
+            log_error("Error while writing output packet: %s", poca_err2str(ret));
             return false;
         }
     }
@@ -229,14 +229,14 @@ void MP4VideoRecorder::EncodeAndWriteFrame() {
         }
         frame->pts = next_pts++;
         if (!WriteFrame(frame)) {
-            log_error("Something wrong when writing a frame");
+            log_warn("Something wrong when writing a frame");
             break;
         }
 
         ring_fifo_av_frame_empty_->Put(frame);
     }
     if (!WriteFrame(nullptr)) {
-        log_error("Something wrong when flushing");
+        log_warn("Something wrong when flushing");
     }
     av_write_trailer(dst_fmt_ctx_);
 }
