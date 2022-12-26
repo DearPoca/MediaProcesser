@@ -204,11 +204,9 @@ bool MP4VideoRecorder::WriteFrame(AVFrame* frame) {
         dst_video_pkt_->stream_index = dst_video_stream_->index;
 
         AVRational* time_base = &dst_fmt_ctx_->streams[dst_video_pkt_->stream_index]->time_base;
-        log_debug("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d",
-                  poca_ts2str(dst_video_pkt_->pts).c_str(), poca_ts2timestr(dst_video_pkt_->pts, time_base).c_str(),
-                  poca_ts2str(dst_video_pkt_->dts).c_str(), poca_ts2timestr(dst_video_pkt_->dts, time_base).c_str(),
-                  poca_ts2str(dst_video_pkt_->duration).c_str(),
-                  poca_ts2timestr(dst_video_pkt_->duration, time_base).c_str(), dst_video_pkt_->stream_index);
+        log_debug("pts:%s pts_time:%s dts:%s dts_time:%s stream_index:%d", poca_ts2str(dst_video_pkt_->pts).c_str(),
+                  poca_ts2timestr(dst_video_pkt_->pts, time_base).c_str(), poca_ts2str(dst_video_pkt_->dts).c_str(),
+                  poca_ts2timestr(dst_video_pkt_->dts, time_base).c_str(), dst_video_pkt_->stream_index);
 
         ret = av_interleaved_write_frame(dst_fmt_ctx_, dst_video_pkt_);
         if (ret < 0) {

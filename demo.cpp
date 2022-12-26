@@ -8,20 +8,23 @@
 #include "ring_fifo.h"
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        printf("usage %s input_file output_file\n", argv[0]);
+    if (argc != 5) {
+        printf("usage %s input_file width height output_file\n", argv[0]);
         exit(-1);
     }
 
-    int frame_size = 1280 * 720 * 3;
+    int width = atoi(argv[2]);
+    int height = atoi(argv[3]);
+
+    int frame_size = width * height * 3;
     char* src = (char*)malloc(frame_size * sizeof(char));
 
     MediaRecorder* recorder = MediaRecorder::CreateMP4VideoRecorder();
     MP4VideoRecorderStartParam param;
-    param.width = 1280;
-    param.height = 720;
+    param.width = width;
+    param.height = height;
     param.fps = 30;
-    param.filename = argv[2];
+    param.filename = argv[4];
     recorder->Start(&param);
 
     for (int i = 0; i < 5; ++i) {
