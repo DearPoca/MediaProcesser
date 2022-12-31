@@ -9,6 +9,8 @@ public:
     virtual bool Start(void* param) = 0;
     virtual bool SendVideoFrame(void* data, int size) = 0;
     virtual bool SendAudioFrame(void* data, int size) = 0;
+    virtual bool SendVideoFrameBlock(void* data, int size) = 0;
+    virtual bool SendAudioFrameBlock(void* data, int size) = 0;
     virtual bool Stop() = 0;
 
     MediaRecorder(){};

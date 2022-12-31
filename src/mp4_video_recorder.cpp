@@ -1,6 +1,5 @@
 #include <libyuv.h>
 
-#include <functional>
 #include <thread>
 
 #include "logger.h"
@@ -20,6 +19,8 @@ public:
     virtual bool Start(void* param) override;
     virtual bool SendVideoFrame(void* data, int size) override;
     virtual bool SendAudioFrame(void* data, int size) override;
+    virtual bool SendVideoFrameBlock(void* data, int size) override;
+    virtual bool SendAudioFrameBlock(void* data, int size) override;
     virtual bool Stop() override;
 
     virtual ~MP4VideoRecorder() override;
@@ -257,8 +258,22 @@ bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
 
     return true;
 }
+bool MP4VideoRecorder::SendVideoFrameBlock(void* data, int size) {
+    if (size != width_ * height_ * 3) {
+        log_warn("Video frame data size not match");
+    }
+
+    AVFrame* frame = ring_fifo_av_frame_empty_->Get();
+    libyuv::RAWToI420((const uint8_t*)data, width_ * 3, frame->data[0], width_, frame->data[1], width_ >> 1,
+                      frame->data[2], width_ >> 1, width_, height_);
+
+    ring_fifo_av_frame_full_->Put(frame);
+    return true;
+}
 
 bool MP4VideoRecorder::SendAudioFrame(void* data, int size) { return false; }
+
+bool MP4VideoRecorder::SendAudioFrameBlock(void* data, int size) { return false; }
 
 bool MP4VideoRecorder::Stop() {
     ring_fifo_av_frame_full_->Put(nullptr);

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <ctime>
 
-const int log_level = DEBUG;
+const int log_level = INFO;
 
 const char *LogLevel2Str[] = {"DEBUG", "INFO", "WARN", "ERROR"};
 
