@@ -11,8 +11,8 @@
 #include "ring_fifo.h"
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        printf("usage %s input_file output_dir\n", argv[0]);
+    if (argc < 3) {
+        printf("usage %s input_file output_dir [frames]\n", argv[0]);
         exit(-1);
     }
     MediaDecoder* dec = MediaDecoder::CreateVideoDecoder();
@@ -20,7 +20,10 @@ int main(int argc, char** argv) {
     dec_param.filename = argv[1];
     dec->Start(&dec_param);
 
-    int buffer_size = 120;
+    int buffer_size = 80;
+    if (argc > 3) {
+        buffer_size = atoi(argv[3]);
+    }
     std::deque<MediaDecoder::Frame*> que_frame_empty;
     std::deque<MediaDecoder::Frame*> que_frame_full;
     for (int i = 0; i < buffer_size; ++i) {
@@ -79,6 +82,7 @@ int main(int argc, char** argv) {
                 recorder->Start(&rec_param);
             }
         } else {
+            que_frame_empty.push_back(frame);
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     }

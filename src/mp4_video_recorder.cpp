@@ -242,7 +242,7 @@ void MP4VideoRecorder::EncodeAndWriteFrame() {
 
 bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
     if (size != width_ * height_ * 3) {
-        log_warn("Video frame data size not match");
+        log_warn("Video frame data size not match, need: %d, actual: %d", width_ * height_ * 3, size);
     }
 
     AVFrame* frame;
@@ -260,7 +260,7 @@ bool MP4VideoRecorder::SendVideoFrame(void* data, int size) {
 }
 bool MP4VideoRecorder::SendVideoFrameBlock(void* data, int size) {
     if (size != width_ * height_ * 3) {
-        log_warn("Video frame data size not match");
+        log_warn("Video frame data size not match, need: %d, actual: %d", width_ * height_ * 3, size);
     }
 
     AVFrame* frame = ring_fifo_av_frame_empty_->Get();
