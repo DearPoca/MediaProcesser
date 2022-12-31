@@ -10,6 +10,9 @@
 #include "media_recorder_interface.h"
 #include "ring_fifo.h"
 
+const double darkness_threshold = 0.99;
+const int frame_threshold = 150;
+
 int main(int argc, char** argv) {
     if (argc < 3) {
         printf("usage %s input_file output_dir [frames]\n", argv[0]);
@@ -42,15 +45,14 @@ int main(int argc, char** argv) {
 
     int frame_cnt = 0;
     int file_cnt = 0;
-    const double darkness_threshold = 0.99;
-    const int frame_threshold = 300;
+    auto get_filename = [&](int cnt) { return std::string(argv[2]) + "/" + "output_" + std::to_string(cnt) + ".mp4"; };
 
     MediaRecorder* recorder = MediaRecorder::CreateMP4VideoRecorder();
     MP4VideoRecorderStartParam rec_param;
     rec_param.width = dec_param.width;
     rec_param.height = dec_param.height;
     rec_param.fps = dec_param.fps;
-    rec_param.filename = std::string(argv[2]) + "/" + "output_" + std::to_string(file_cnt) + ".mp4";
+    rec_param.filename = get_filename(file_cnt);
     recorder->Start(&rec_param);
 
     while (true) {
@@ -76,7 +78,7 @@ int main(int argc, char** argv) {
                 rec_param.width = dec_param.width;
                 rec_param.height = dec_param.height;
                 rec_param.fps = dec_param.fps;
-                rec_param.filename = std::string(argv[2]) + "/" + "output_" + std::to_string(file_cnt) + ".mp4";
+                rec_param.filename = get_filename(file_cnt);
                 log_info("timestamp: %ld, len: %d, darkness: %lf, new file: %s", frame->timestamp, frame->len,
                          get_darkness(frame), rec_param.filename.c_str());
                 recorder->Start(&rec_param);
