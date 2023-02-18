@@ -15,9 +15,14 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/util MEDIA_RECORDER_SRC)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src MEDIA_RECORDER_SRC)
 
+set(DEMO_DEPENDENCIES avformat avcodec avutil avfilter yuv x264)
+
 add_library(${VIDEO_PROCESSER_LIB_NAME} SHARED ${MEDIA_RECORDER_SRC})
 add_executable(demo-recorder ${CMAKE_CURRENT_SOURCE_DIR}/demo_recorder.cpp)
-target_link_libraries(demo-recorder ${VIDEO_PROCESSER_LIB_NAME} avformat avcodec avutil yuv x264)
+target_link_libraries(demo-recorder ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES})
 
 add_executable(demo-split ${CMAKE_CURRENT_SOURCE_DIR}/demo_split.cpp)
-target_link_libraries(demo-split ${VIDEO_PROCESSER_LIB_NAME} avformat avcodec avutil yuv x264)
+target_link_libraries(demo-split ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES})
+
+add_executable(demo-char-animation ${CMAKE_CURRENT_SOURCE_DIR}/demo_char_animation.cpp)
+target_link_libraries(demo-char-animation ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES})
