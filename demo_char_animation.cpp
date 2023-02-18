@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
     frame_b->height = height;
     av_frame_get_buffer(frame_b, 0);
 
-    const char *strs = "@#$&MA?ebi!;+_*-,^~.    ";
+    const char *strs = "      .~^,-*_+;!itlr?JTMW&$#@";
     int len_strs = strlen(strs);
     int width_reduction = 6;
     int height_reduction = 10;
