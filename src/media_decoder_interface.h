@@ -3,8 +3,8 @@
 #include <string>
 
 extern "C" {
-#include "libavutil/avutil.h"
-#include "libavutil/pixfmt.h"
+#include <libavutil/avutil.h>
+#include <libavutil/pixfmt.h>
 }
 
 class MediaDecoder {
