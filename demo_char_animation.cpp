@@ -25,15 +25,15 @@ int main(int argc, char **argv) {
     MediaDecoder *dec = MediaDecoder::CreateVideoDecoder();
     VideoDecoderStartParam dec_param;
     dec_param.filename = argv[1];
-    dec->Start(&dec_param);
-    int width = dec_param.width;
-    int height = dec_param.height;
+    MediaDecoderStartRet dec_ret = dec->Start(&dec_param);
+    int width = dec_ret.width;
+    int height = dec_ret.height;
 
     MediaRecorder *recorder = MediaRecorder::CreateMP4VideoRecorder();
     MP4VideoRecorderStartParam rec_param;
     rec_param.width = width;
     rec_param.height = height;
-    rec_param.fps = dec_param.fps;
+    rec_param.fps = dec_ret.fps;
     rec_param.filename = argv[2];
     recorder->Start(&rec_param);
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
     int height_reduction = 10;
     char *row_char = new char[width / width_reduction + 1];
 
-    MediaDecoder::Frame *frame = nullptr;
+    AVFrame *frame = nullptr;
     dec->InitFrame(&frame);
     int yuv_frame_size = width * height / 2 + width * height;
     uint8_t *yuv_tmp = (uint8_t *)malloc(yuv_frame_size * sizeof(uint8_t));
@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
         if (!dec->ReadFrame(frame)) {
             break;
         }
-        libyuv::RAWToI420(frame->data, width * 3, yuv_tmp, width, yuv_tmp + width * height, (width + 1) / 2,
+        libyuv::RAWToI420(frame->data[0], width * 3, yuv_tmp, width, yuv_tmp + width * height, (width + 1) / 2,
                           yuv_tmp + width * height + ((width + 1) / 2) * ((height + 1) / 2), (width + 1) / 2, width,
                           height);
         memset(frame_a->data[0], 0, frame_a->linesize[0] * frame_a->height);

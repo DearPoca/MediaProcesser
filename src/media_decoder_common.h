@@ -4,8 +4,13 @@
 
 struct VideoDecoderStartParam {
     std::string filename;
+};
 
-    int width;
-    int height;
-    int fps;
+struct MediaDecoderStartRet {
+    bool success = false;
+
+    // for video:
+    int width = 0;
+    int height = 0;
+    int fps = 0;
 };

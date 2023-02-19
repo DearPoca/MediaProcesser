@@ -15,9 +15,9 @@ extern "C" {
 
 class VideoDecoder : public MediaDecoder {
 public:
-    virtual bool Start(void* param) override;
-    virtual bool ReadFrame(Frame* frame) override;
-    virtual void InitFrame(Frame** frame) override;
+    virtual MediaDecoderStartRet Start(void* param) override;
+    virtual bool ReadFrame(AVFrame* frame) override;
+    virtual bool InitFrame(AVFrame** frame) override;
 
     virtual ~VideoDecoder() override;
 
@@ -52,14 +52,22 @@ MediaDecoder* MediaDecoder::CreateVideoDecoder() { return new VideoDecoder(); }
 
 VideoDecoder::~VideoDecoder() {}
 
-void VideoDecoder::InitFrame(Frame** frame) {
+bool VideoDecoder::InitFrame(AVFrame** frame) {
     if (*frame == nullptr) {
-        *frame = new MediaDecoder::Frame();
+        *frame = av_frame_alloc();
+        if (!(*frame)) return false;
     }
-    (*frame)->len = width_ * height_ * 3;
-    (*frame)->pix_fmt = AV_PIX_FMT_RGB24;
-    (*frame)->stream_type = AVMEDIA_TYPE_VIDEO;
-    (*frame)->data = new uint8_t[(*frame)->len];
+
+    (*frame)->format = AV_PIX_FMT_RGB24;
+    (*frame)->width = width_;
+    (*frame)->height = height_;
+
+    /* allocate the buffers for the frame data */
+    if (av_frame_get_buffer(*frame, 0) < 0) {
+        log_error("Could not allocate frame data.");
+        return false;
+    }
+    return true;
 }
 
 bool VideoDecoder::InitAVContexts() {
@@ -117,25 +125,26 @@ bool VideoDecoder::InitAVContexts() {
     return true;
 }
 
-bool VideoDecoder::Start(void* param) {
+MediaDecoderStartRet VideoDecoder::Start(void* param) {
+    MediaDecoderStartRet ret;
     if (param == nullptr) {
         log_error("Start param is nullptr");
-        return false;
+        return ret;
     }
     VideoDecoderStartParam* start_param = reinterpret_cast<VideoDecoderStartParam*>(param);
 
     if (avformat_open_input(&src_fmt_ctx_, start_param->filename.c_str(), NULL, NULL) < 0) {
         log_error("Could not open source file %s", start_param->filename.c_str());
-        return false;
+        return ret;
     }
 
     if (avformat_find_stream_info(src_fmt_ctx_, NULL) < 0) {
         log_error("Could not find stream information");
-        return false;
+        return ret;
     }
 
     if (!InitAVContexts()) {
-        return false;
+        return ret;
     }
 
     ring_fifo_av_frame_full_ = new RingFIFO<AVFrame*>(buffer_size_);
@@ -143,30 +152,28 @@ bool VideoDecoder::Start(void* param) {
 
     for (int i = 0; i < buffer_size_; ++i) {
         AVFrame* frame;
-        int ret;
 
         frame = av_frame_alloc();
-        if (!frame) return false;
+        if (!frame) return ret;
 
         frame->format = src_pix_fmt_;
         frame->width = width_;
         frame->height = height_;
 
         /* allocate the buffers for the frame data */
-        ret = av_frame_get_buffer(frame, 0);
-        if (ret < 0) {
+        if (av_frame_get_buffer(frame, 0) < 0) {
             log_error("Could not allocate frame data.");
-            return false;
+            return ret;
         }
         ring_fifo_av_frame_empty_->Put(frame);
     }
 
     worker_thread_ = std::thread(&VideoDecoder::ReadPacketAndDecode, this);
-    start_param->width = width_;
-    start_param->height = height_;
-    start_param->fps = av_q2d(src_fmt_ctx_->streams[video_stream_idx_]->avg_frame_rate);
+    ret.width = width_;
+    ret.height = height_;
+    ret.fps = av_q2d(src_fmt_ctx_->streams[video_stream_idx_]->avg_frame_rate);
 
-    return true;
+    return ret;
 }
 
 int VideoDecoder::DecodePacket(AVCodecContext* dec, AVPacket* pkt) {
@@ -212,26 +219,23 @@ void VideoDecoder::ReadPacketAndDecode() {
     ring_fifo_av_frame_full_->Put(nullptr);
 }
 
-bool VideoDecoder::ReadFrame(Frame* frame) {
-    AVFrame* av_frame;
-    if (!ring_fifo_av_frame_full_->GetNoWait(av_frame)) {
-        log_debug("Buffer empty, please put frame slowly");
-        frame->len = 0;
-        return true;
+bool VideoDecoder::ReadFrame(AVFrame* frame) {
+    if (frame == nullptr) {
+        return false;
     }
+
+    AVFrame* av_frame = ring_fifo_av_frame_full_->Get();
 
     if (av_frame == nullptr) {
         return false;
     }
 
     libyuv::I420ToRAW(av_frame->data[0], width_, av_frame->data[1], width_ >> 1, av_frame->data[2], width_ >> 1,
-                      frame->data, width_ * 3, width_, height_);
-    frame->len = width_ * height_ * 3;
-    frame->pix_fmt = AV_PIX_FMT_RGB24;
-    frame->stream_type = AVMEDIA_TYPE_VIDEO;
-    frame->timestamp = av_frame->pts * 1000 * av_q2d(av_frame->time_base);
+                      frame->data[0], width_ * 3, width_, height_);
 
-    av_frame_unref(av_frame);
+    frame->pts = av_frame->pts * 1000 * av_q2d(av_frame->time_base);
+    frame->time_base = (AVRational){1, 1000};
+
     ring_fifo_av_frame_empty_->Put(av_frame);
 
     return true;

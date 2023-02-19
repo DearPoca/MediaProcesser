@@ -21,26 +21,26 @@ int main(int argc, char** argv) {
     MediaDecoder* dec = MediaDecoder::CreateVideoDecoder();
     VideoDecoderStartParam dec_param;
     dec_param.filename = argv[1];
-    dec->Start(&dec_param);
+    MediaDecoderStartRet dec_ret = dec->Start(&dec_param);
 
     int buffer_size = 80;
     if (argc > 3) {
         buffer_size = atoi(argv[3]);
     }
-    std::deque<MediaDecoder::Frame*> que_frame_empty;
-    std::deque<MediaDecoder::Frame*> que_frame_full;
+    std::deque<AVFrame*> que_frame_empty;
+    std::deque<AVFrame*> que_frame_full;
     for (int i = 0; i < buffer_size; ++i) {
-        MediaDecoder::Frame* frame = nullptr;
+        AVFrame* frame = nullptr;
         dec->InitFrame(&frame);
         que_frame_empty.push_back(frame);
     }
 
-    auto get_darkness = [&](MediaDecoder::Frame* f) {
-        double sum = 255.0 * f->len;
-        for (int i = 0; i < f->len; ++i) {
-            sum -= f->data[i];
+    auto get_darkness = [&](AVFrame* f) {
+        double sum = 255.0 * f->linesize[0] * f->height;
+        for (int i = 0; i < f->linesize[0] * f->height; ++i) {
+            sum -= f->data[0][i];
         }
-        return sum / (255.0 * f->len);
+        return sum / (255.0 * f->linesize[0] * f->height);
     };
 
     int frame_cnt = 0;
@@ -49,18 +49,18 @@ int main(int argc, char** argv) {
 
     MediaRecorder* recorder = MediaRecorder::CreateMP4VideoRecorder();
     MP4VideoRecorderStartParam rec_param;
-    rec_param.width = dec_param.width;
-    rec_param.height = dec_param.height;
-    rec_param.fps = dec_param.fps;
+    rec_param.width = dec_ret.width;
+    rec_param.height = dec_ret.height;
+    rec_param.fps = dec_ret.fps;
     rec_param.filename = get_filename(file_cnt);
     recorder->Start(&rec_param);
 
     while (true) {
-        MediaDecoder::Frame* frame;
+        AVFrame* frame;
         if (que_frame_empty.empty()) {
             frame = que_frame_full.front();
             que_frame_full.pop_front();
-            recorder->SendVideoFrameBlock(frame->data, frame->len);
+            recorder->SendVideoFrameBlock(frame->data[0], frame->linesize[0] * frame->height);
             que_frame_empty.push_back(frame);
         }
         frame = que_frame_empty.front();
@@ -68,19 +68,19 @@ int main(int argc, char** argv) {
         if (!dec->ReadFrame(frame)) {
             break;
         }
-        if (frame->len > 0) {
+        if (frame->linesize[0] * frame->height > 0) {
             que_frame_full.push_back(frame);
             ++frame_cnt;
             if (frame_cnt > frame_threshold && get_darkness(frame) > darkness_threshold) {
                 recorder->Stop();
                 frame_cnt = 0;
                 file_cnt++;
-                rec_param.width = dec_param.width;
-                rec_param.height = dec_param.height;
-                rec_param.fps = dec_param.fps;
+                rec_param.width = dec_ret.width;
+                rec_param.height = dec_ret.height;
+                rec_param.fps = dec_ret.fps;
                 rec_param.filename = get_filename(file_cnt);
-                log_info("timestamp: %ld, len: %d, darkness: %lf, new file: %s", frame->timestamp, frame->len,
-                         get_darkness(frame), rec_param.filename.c_str());
+                log_info("timestamp: %ld, len: %d, darkness: %lf, new file: %s", frame->pts,
+                         frame->linesize[0] * frame->height, get_darkness(frame), rec_param.filename.c_str());
                 recorder->Start(&rec_param);
             }
         } else {
@@ -89,9 +89,9 @@ int main(int argc, char** argv) {
         }
     }
     while (!que_frame_full.empty()) {
-        MediaDecoder::Frame* frame = que_frame_full.front();
+        AVFrame* frame = que_frame_full.front();
         que_frame_full.pop_front();
-        recorder->SendVideoFrameBlock(frame->data, frame->len);
+        recorder->SendVideoFrameBlock(frame->data[0], frame->linesize[0] * frame->height);
     }
     recorder->Stop();
     return 0;
