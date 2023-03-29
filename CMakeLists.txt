@@ -27,5 +27,5 @@ target_link_libraries(demo-split ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES
 add_executable(demo-char-animation ${CMAKE_CURRENT_SOURCE_DIR}/demo_char_animation.cpp)
 target_link_libraries(demo-char-animation ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES})
 
-add_executable(scale-convert-benchmark ${CMAKE_CURRENT_SOURCE_DIR}/scale_convert_benchmark.cpp)
+add_executable(scale-convert-benchmark ${CMAKE_CURRENT_SOURCE_DIR}/test/scale_convert_benchmark.cpp)
 target_link_libraries(scale-convert-benchmark ${VIDEO_PROCESSER_LIB_NAME} ${DEMO_DEPENDENCIES})
